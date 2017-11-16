@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<style>
+			label {
+				font-weight: bold;
+			}
+			
+			input {
+				width: 100%;
+				margin-bottom: 10px;
+			}
+		</style>
+		<script src="sdk/scripts/VSS.SDK.min.js"></script> 
+		<script type="text/javascript">
+			VSS.init({                        
+				explicitNotifyLoaded: true,
+				usePlatformStyles: true
+			});
+
+			VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
+				VSS.register("BranchPolizei.Configuration", function () {
+					var $daysInput = $("#days");
+					
+					return {
+						load: function (widgetSettings, widgetConfigurationContext) {
+							var settings = JSON.parse(widgetSettings.customSettings.data);
+							
+							if (settings && settings.days) {
+								 $daysInput.val(settings.days);
+							}
+							$daysInput.on("change", function () {
+								var customSettings = {
+									data: JSON.stringify({
+										days: $daysInput.val()
+									})
+								};
+								var eventName = WidgetHelpers.WidgetEvent.ConfigurationChange;
+								var eventArgs = WidgetHelpers.WidgetEvent.Args(customSettings);
+								widgetConfigurationContext.notify(eventName, eventArgs);
+							});
+							
+							return WidgetHelpers.WidgetStatusHelper.Success();
+						},
+						onSave: function() {
+							var customSettings = {
+								data: JSON.stringify({
+										days: $daysInput.val()
+									})
+							};
+							return WidgetHelpers.WidgetConfigurationSave.Valid(customSettings); 
+						}
+					}
+				});
+				VSS.notifyLoadSucceeded();
+			});
+		</script>		
+	</head>
+	<body>
+		<div class="container">
+			<fieldset>
+				<label>Days after the sprint when in violation: </label><br />
+				<input type="text" value="" id="days" />
+			</fieldset>
+		</div>
+	</body>
+</html>

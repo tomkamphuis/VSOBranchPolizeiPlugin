@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style>
+			
+			.widget {
+				background: #49A67F url("img/background.png") no-repeat top right;
+				height: 100% !important;
+				overflow-y: scroll !important;
+			}
+			
+			.high-prio {
+				color: darkred;
+				font-weight: bold;
+			}
+			
+			.medium-prio {
+				color: yellow;
+			}
+			
+			.low-prio {
+				color: blue;
+			}
+		</style>
+		<script src="sdk/scripts/VSS.SDK.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.4/lodash.min.js"></script>
+		<script type="text/javascript">
+			function GetClass(behind) {
+				if(behind > 500) {
+					return "high-prio";
+				}
+				if(behind > 250) {
+					return "medium-prio";
+				}
+				
+				return "low-prio";
+			}
+		
+			VSS.init({                        
+				explicitNotifyLoaded: true,
+				usePlatformStyles: true
+			});
+			
+			VSS.require(["TFS/Dashboards/WidgetHelpers", "VSS/Service", "TFS/VersionControl/GitRestClient"], function (WidgetHelpers, VSS_Service, TFS_Git_WebApi) {
+				WidgetHelpers.IncludeWidgetStyles();
+				VSS.register("BranchPolizei", function () { 
+				
+					var days = 99;
+					var $branchList = $('#BranchList');
+					
+					var webContext = VSS.getWebContext();
+					var teamContext = { projectId: webContext.project.id, teamId: webContext.team.id, project: "", team: "" };
+					
+					var getBranchInfo = function () {
+					
+						var gitClient = TFS_Git_WebApi.getClient();
+						
+						gitClient.getBranches("6e51f95c-bafc-4a94-93eb-9df09fa124f0")
+							.then(function (branches) {
+								var branchesInViolation = [];
+								
+								for(var i = 0; i < branches.length; i++) {
+									if(branches[i].behindCount > days) {
+										branchesInViolation.push({
+											name: branches[i].name, 
+											behind: branches[i].behindCount, 
+											violator: branches[i].commit.committer.name
+										});
+									}
+								}
+								
+								var ordered = _.orderBy(branchesInViolation, ['behind'], ['desc']);
+								
+								for(var j = 0; j < ordered.length; j++) {
+									$branchList.append('<li class=' + GetClass(ordered[j].behind) + '>' + ordered[j].name + ' by ' + ordered[j].violator + ' (' + ordered[j].behind + ' commits behind)</li>');
+								}
+								
+								return WidgetHelpers.WidgetStatusHelper.Success();
+							}), function (error) {                            
+								return WidgetHelpers.WidgetStatusHelper.Failure(error.message);
+							};
+							
+							return WidgetHelpers.WidgetStatusHelper.Success();
+										
+						//return gitClient.getRepositories(webContext.project.id)
+							//.then(function (repositories) {
+														
+								//console.log(repositories);
+								//for(var i = 0; i < repositories.length; i++)
+									//gitClient.getBranches(repositories[i].id)
+										//.then(function (branch) { 
+											//console.log(branch); 
+										//}); 
+								//} 
+							
+					}
+				
+					return {
+						load: function (widgetSettings) {
+						
+							var settings = JSON.parse(widgetSettings.customSettings.data);
+							if (settings && settings.days) {
+								days = settings.days;
+							}
+						
+							return getBranchInfo();
+						},
+						reload: function (widgetSettings) {
+							
+							var settings = JSON.parse(widgetSettings.customSettings.data);
+							if (settings && settings.days) {
+								days = settings.days;
+							}
+							
+							return getBranchInfo();
+						}
+					}
+				});
+				VSS.notifyLoadSucceeded();
+			});
+		</script>
+	</head>
+	<body>
+		<div class="widget">
+			<h2 class="title">Branch polizei</h2>
+			<ul id="BranchList">
+			</ul>
+		</div>
+	</body>
+</html>
